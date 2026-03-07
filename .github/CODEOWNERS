@@ -1,0 +1,15 @@
+# CODEOWNERS
+# Each line is a file pattern followed by one or more owners.
+# Order is important: the last matching pattern takes precedence.
+# More info: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global owner - requires review from @xmaiconx on all files
+* @xmaiconx
+
+# GitHub Actions and CI/CD configs
+.github/ @xmaiconx
+
+# Security-sensitive files
+*.env @xmaiconx
+*.key @xmaiconx
+*.pem @xmaiconx
