@@ -1,327 +1,341 @@
 # Indexed Skills Specification (ISS) v0.1
-> An open standard for surgical context loading in AI Agent Skills
+
+> An open standard for surgical context loading in AI Agent Skills.
 
 ---
 
-## O Problema
+## The Problem
 
-O padrão atual de Agent Skills usa **Progressive Disclosure em 2 níveis**:
-
-```
-Nível 1: frontmatter YAML  →  ~5 linhas (sempre carregado)
-Nível 2: corpo do SKILL.md →  pode ter 3000 linhas (tudo ou nada)
-```
-
-Se uma skill tem 3000 linhas e o agente precisa de 80 linhas sobre autenticação,
-ele carrega **3000 linhas**. Desperdício de contexto, latência, custo.
-
-**O que propomos:** um terceiro nível de precisão, inspirado em índices de banco de dados.
+Current Agent Skills follow a two-level progressive disclosure model:
 
 ```
-Nível 1: frontmatter YAML     →  ~10 linhas  (startup)
-Nível 2: index.json           →  ~200 linhas (seleção de tópico)
-Nível 3: seção específica     →  ~80 linhas  (execução)
-Total: ~290 linhas, não 3000
+Level 1: YAML frontmatter   ->  ~5 lines   (always loaded)
+Level 2: SKILL.md body       ->  up to 3000+ lines (all or nothing)
+```
+
+If a skill contains 3000 lines and the agent only needs 80 lines about authentication, it still loads **all 3000 lines**. This wastes context window capacity, increases latency, and drives up cost.
+
+**What ISS proposes:** a tier-based inline indexing system that lets agents load only the sections they need, without external index files or extra tooling.
+
+```
+Level 1: YAML frontmatter     ->  ~10 lines  (detection)
+Level 2: Inline INDEX block    ->  ~20 lines  (topic selection)
+Level 3: Targeted SECTION      ->  ~80 lines  (execution)
+Total: ~110 lines loaded, not 3000
 ```
 
 ---
 
-## Analogias de Indexação Adaptadas
+## Solution Overview
 
-| Técnica Original          | Como Adaptamos                                      |
-|--------------------------|-----------------------------------------------------|
-| **Inverted Index** (Lucene/Elasticsearch) | `keywords[]` → `{file, lines}` no index.json |
-| **B-Tree Index** (SQL)   | Hierarquia `topic → subtopic → section`             |
-| **llms.txt**             | SKILL.md como "curated TOC" apontando pro índice    |
-| **Sitemap.xml**          | index.json listando todos os arquivos + metadados   |
-| **RAG Chunking**         | Chunks determinísticos com line ranges fixos        |
-| **Book Index**           | Keyword → página → parágrafo específico             |
+ISS adds lightweight inline markers directly inside Markdown files. There are no external JSON indexes or databases. Everything lives in standard Markdown comments that are invisible to human readers but machine-parseable by agents.
 
----
+The system has two tiers:
 
-## Estrutura de Diretório
-
-```
-my-skill/
-├── SKILL.md           # About + ponteiro para index.json (< 50 linhas)
-├── index.json         # Índice estruturado de todo o conteúdo
-├── sections/
-│   ├── auth.md        # ~80-150 linhas por arquivo
-│   ├── billing.md
-│   ├── deployment.md
-│   └── troubleshoot.md
-└── scripts/
-    └── helper.py
-```
-
-### Regra de ouro
-- `SKILL.md` → identidade + ponteiro. **Nunca** conteúdo técnico.
-- `index.json` → mapa completo. Suficiente para o agente decidir o que ler.
-- `sections/*.md` → conteúdo real, isolado por responsabilidade.
+| Tier | Use Case | Structure |
+|------|----------|-----------|
+| **Tier 1** | Small-to-medium skills (single file) | INDEX and SECTION markers all in one `SKILL.md` |
+| **Tier 2** | Large skills (multiple files) | INDEX in `SKILL.md` pointing to files; SECTION markers in each file |
 
 ---
 
-## Especificação: SKILL.md
+## Detection
+
+An agent detects an indexed skill by reading the YAML frontmatter and looking for the `indexed-skill` field:
 
 ```yaml
 ---
 name: my-skill
-description: >
-  Descrição clara do domínio e quando usar esta skill.
-  Palavras-chave relevantes aqui para matching.
-version: "0.1.0"
-index: index.json          # ponteiro obrigatório neste padrão
-license: MIT
+indexed-skill: tier 1
 ---
 ```
 
+```yaml
+---
+name: my-large-skill
+indexed-skill: tier 2
+---
+```
+
+If the field is absent, the skill is not indexed and should be consumed normally. This makes ISS fully backward-compatible with existing Agent Skills.
+
+---
+
+## Tier 1 -- Single File
+
+Everything lives in a single `SKILL.md`. The file contains:
+
+1. YAML frontmatter with `indexed-skill: tier 1`
+2. An `<!-- INDEX -->` block mapping section IDs to topics
+3. `<!-- SECTION -->` / `<!-- /SECTION -->` markers wrapping each content block
+
+### Example
+
 ```markdown
+---
+name: my-skill
+indexed-skill: tier 1
+---
 # My Skill
 
-Breve parágrafo descritivo (2-4 linhas).
-Não inclua conteúdo técnico aqui — use as seções indexadas.
+Brief description of what this skill does.
 
-> Este skill segue o padrão **Indexed Skills Specification (ISS) v0.1**
-> Consulte `index.json` para navegar pelo conteúdo disponível.
+<!-- INDEX
+@auth-overview | authentication | OAuth2, JWT, API Key setup
+@auth-jwt | jwt | Token generation and validation
+@billing | billing | Stripe integration and webhooks
+-->
+
+<!-- SECTION:auth-overview | keywords: auth,login,oauth | Authentication methods overview -->
+## Authentication Overview
+
+OAuth2 is the primary authentication method...
+(content here)
+
+<!-- /SECTION:auth-overview -->
+
+<!-- SECTION:auth-jwt | keywords: jwt,token,bearer,refresh | JWT token generation and validation -->
+## JWT Implementation
+
+To generate a JWT token...
+(content here)
+
+<!-- /SECTION:auth-jwt -->
+
+<!-- SECTION:billing | keywords: billing,stripe,payment,webhook | Stripe integration and webhooks -->
+## Billing
+
+Stripe is used for all payment processing...
+(content here)
+
+<!-- /SECTION:billing -->
 ```
 
-**Tamanho máximo recomendado: 50 linhas.**
+### How it works
+
+- The **INDEX block** gives the agent a lightweight map of all available sections without reading the full content.
+- Each **SECTION marker** wraps a self-contained block of content that can be read independently.
+- The agent matches the user's intent against index entries (by topic and description), then reads only the matching sections.
 
 ---
 
-## Especificação: index.json
+## Tier 2 -- Multiple Files
 
-```json
-{
-  "$schema": "https://indexed-skills.dev/schema/v0.1.json",
-  "version": "0.1",
-  "skill": "my-skill",
-  "generated_at": "2026-03-07T00:00:00Z",
-  "total_lines": 3200,
-  "sections": [
-    {
-      "id": "auth-overview",
-      "topic": "authentication",
-      "subtopic": "overview",
-      "label": "Visão geral de autenticação",
-      "summary": "Explica os métodos suportados: OAuth2, JWT, API Key",
-      "file": "sections/auth.md",
-      "lines": [1, 45],
-      "keywords": ["auth", "login", "oauth", "jwt", "token", "autenticação"],
-      "triggers": [
-        "como autenticar",
-        "preciso fazer login",
-        "configurar oauth"
-      ],
-      "related": ["auth-jwt", "auth-oauth"],
-      "complexity": "basic"
-    },
-    {
-      "id": "auth-jwt",
-      "topic": "authentication",
-      "subtopic": "jwt",
-      "label": "Implementação JWT",
-      "summary": "Como gerar, validar e renovar tokens JWT",
-      "file": "sections/auth.md",
-      "lines": [46, 130],
-      "keywords": ["jwt", "token", "bearer", "refresh", "expiration"],
-      "triggers": [
-        "jwt não está funcionando",
-        "token expirado",
-        "refresh token"
-      ],
-      "related": ["auth-overview", "troubleshoot-auth"],
-      "complexity": "intermediate"
-    },
-    {
-      "id": "billing-overview",
-      "topic": "billing",
-      "subtopic": "overview",
-      "label": "Sistema de cobrança",
-      "summary": "Stripe integration, planos e webhooks",
-      "file": "sections/billing.md",
-      "lines": [1, 60],
-      "keywords": ["billing", "pagamento", "stripe", "plano", "cobrança"],
-      "triggers": [
-        "configurar pagamento",
-        "integrar stripe",
-        "webhook de cobrança"
-      ],
-      "related": ["billing-webhooks"],
-      "complexity": "intermediate"
-    }
-  ],
-  "topic_tree": {
-    "authentication": ["auth-overview", "auth-jwt", "auth-oauth"],
-    "billing": ["billing-overview", "billing-webhooks"],
-    "deployment": ["deploy-docker", "deploy-k8s"],
-    "troubleshooting": ["troubleshoot-auth", "troubleshoot-billing"]
-  }
-}
-```
+For large skills, content is split across multiple files. `SKILL.md` contains only the frontmatter, description, and a file-level INDEX. Each referenced file contains its own SECTION markers.
 
----
-
-## Como o Agente Deve Usar
-
-O agente segue este algoritmo determinístico:
-
-```
-1. STARTUP
-   └── Lê SKILL.md frontmatter → sabe que a skill existe e quando usar
-
-2. INVOCAÇÃO (skill relevante detectada)
-   └── Lê index.json completo → ~200 linhas
-       └── Analisa: keywords[], triggers[], summary de cada seção
-
-3. SELEÇÃO CIRÚRGICA
-   └── Identifica IDs relevantes (ex: ["auth-jwt", "auth-overview"])
-       └── Lê sections/auth.md linhas 1-130 → ~130 linhas
-
-4. EXECUÇÃO
-   └── Trabalha com ~330 linhas totais
-       └── (vs 3200 linhas sem indexação)
-```
-
-### Exemplo de instrução para o agente (em SKILL.md)
+### SKILL.md
 
 ```markdown
-## Como usar este skill
+---
+name: my-large-skill
+indexed-skill: tier 2
+---
+# My Large Skill
 
-1. Leia `index.json` para identificar seções relevantes
-2. Use `keywords` e `triggers` para matching com a tarefa atual
-3. Leia APENAS os arquivos e line ranges identificados
-4. Se precisar de contexto adicional, verifique o campo `related`
-5. Nunca carregue todo o conteúdo sem consultar o índice primeiro
+Brief description of what this skill covers.
+
+<!-- INDEX
+@sections/auth.md | authentication | OAuth2, JWT, API Key setup and validation
+@sections/billing.md | billing | Stripe integration, plans, webhooks
+-->
+```
+
+### sections/auth.md
+
+```markdown
+<!-- SECTION:auth-overview | keywords: auth,login,oauth | Authentication methods overview -->
+## Authentication Overview
+
+OAuth2 is the primary authentication method...
+(content here)
+
+<!-- /SECTION:auth-overview -->
+
+<!-- SECTION:auth-jwt | keywords: jwt,token,bearer,refresh | JWT token generation and validation -->
+## JWT Implementation
+
+To generate a JWT token...
+(content here)
+
+<!-- /SECTION:auth-jwt -->
+```
+
+### sections/billing.md
+
+```markdown
+<!-- SECTION:billing-overview | keywords: billing,stripe,payment | Stripe integration overview -->
+## Billing Overview
+
+All payments are processed through Stripe...
+(content here)
+
+<!-- /SECTION:billing-overview -->
+
+<!-- SECTION:billing-webhooks | keywords: webhook,event,stripe | Webhook setup and handling -->
+## Webhooks
+
+Configure Stripe webhooks to receive payment events...
+(content here)
+
+<!-- /SECTION:billing-webhooks -->
+```
+
+### How it works
+
+- The agent reads `SKILL.md` and its file-level INDEX to identify which files are relevant.
+- It then reads only the relevant file(s) and scans their SECTION markers to find the exact content needed.
+- This two-step narrowing keeps context loading minimal even for very large skills.
+
+---
+
+## Marker Format
+
+### Index entries
+
+Format: `@{target} | {topic} | {description}`
+
+- **Tier 1:** target is a section ID (e.g., `@auth-overview`)
+- **Tier 2:** target is a file path relative to the skill root (e.g., `@sections/auth.md`)
+
+Index entries are wrapped in an INDEX block:
+
+```markdown
+<!-- INDEX
+@target1 | topic1 | Description of first entry
+@target2 | topic2 | Description of second entry
+-->
+```
+
+### Section markers
+
+**Open:** `<!-- SECTION:{id} | keywords: {kw1,kw2,...} | {description} -->`
+
+**Close:** `<!-- /SECTION:{id} -->`
+
+The `id` must be unique within the file. Keywords are comma-separated, no spaces after commas. The description is a short human-readable summary.
+
+---
+
+## Regex Patterns
+
+Agents should use these patterns to parse ISS markers:
+
+| Marker | Regex |
+|--------|-------|
+| Index entry | `@(.+?) \| (.+?) \| (.+)` |
+| Section open | `<!-- SECTION:(\S+) \| keywords: (.+?) \| (.+?) -->` |
+| Section close | `<!-- /SECTION:(\S+) -->` |
+
+---
+
+## Agent Consumption Algorithm
+
+### Tier 1
+
+```
+1. Read SKILL.md frontmatter
+   -> Detect `indexed-skill: tier 1`
+
+2. Grep for `<!-- INDEX` in SKILL.md
+   -> Parse all `@id | topic | description` entries
+
+3. Match relevant sections
+   -> Compare user intent against topic and description fields
+
+4. For each matched section ID:
+   a. Grep `<!-- SECTION:id -->` -> get start line
+   b. Grep `<!-- /SECTION:id -->` -> get end line
+   c. Read only that line range from SKILL.md
+```
+
+### Tier 2
+
+```
+1. Read SKILL.md frontmatter
+   -> Detect `indexed-skill: tier 2`
+
+2. Grep for `<!-- INDEX` in SKILL.md
+   -> Parse all `@filepath | topic | description` entries
+   -> Identify relevant file(s) by topic and description
+
+3. In each relevant file, grep for `<!-- SECTION:` markers
+   -> List all sections with their keywords and descriptions
+
+4. Match relevant sections
+   -> Compare user intent against keywords and descriptions
+
+5. For each matched section:
+   a. Grep `<!-- SECTION:id -->` -> get start line
+   b. Grep `<!-- /SECTION:id -->` -> get end line
+   c. Read only that line range from the target file
+```
+
+### Key principles
+
+- **Never load full files.** Always use the index first, then read targeted line ranges.
+- **Prefer grep over full reads.** Grep for markers to find line numbers, then read only the needed range.
+- **Expand if needed.** If the first section does not resolve the task, check related sections from the same topic area.
+
+---
+
+## Ecosystem
+
+ISS ships two companion skills that teach agents how to work with indexed skills:
+
+| Skill | Purpose |
+|-------|---------|
+| `indexed-skill/SKILL.md` | Teaches agents how to **consume** indexed skills (detection, parsing, targeted reading) |
+| `indexed-skill-creator/SKILL.md` | Teaches agents how to **create** indexed skills (structuring content, writing markers, validation) |
+
+Both skills are themselves indexed, serving as living examples of the specification.
+
+---
+
+## Repository Structure
+
+```
+indexed-skill-spec/
+├── README.md                              # This specification document
+├── examples/
+│   ├── tier1-example/
+│   │   └── SKILL.md                       # Complete Tier 1 example
+│   └── tier2-example/
+│       ├── SKILL.md                       # Tier 2 entry point
+│       └── sections/
+│           ├── auth.md                    # Section file example
+│           └── billing.md                 # Section file example
+├── skills/
+│   ├── indexed-skill/
+│   │   └── SKILL.md                       # Consumer skill
+│   └── indexed-skill-creator/
+│       └── SKILL.md                       # Creator skill
+└── schema/
+    └── v0.1.json                          # JSON Schema for validation
 ```
 
 ---
 
-## Algoritmo de Matching Recomendado
+## Compatibility
 
-O agente pode usar qualquer uma destas estratégias, em ordem de preferência:
+ISS is **fully backward-compatible** with the existing Agent Skills specification:
 
-### 1. Trigger Matching (mais preciso)
-Compara a intenção do usuário com os `triggers[]` de cada seção.
-```
-user: "meu token jwt está expirado"
-match: section "auth-jwt" (trigger: "token expirado") → score: 0.95
-```
-
-### 2. Keyword Intersection
-Intersecção entre palavras da query e `keywords[]` de cada seção.
-```
-user: "configurar refresh token"
-keywords da query: ["configurar", "refresh", "token"]
-seção "auth-jwt": ["jwt", "token", "bearer", "refresh"] → 2 matches
-```
-
-### 3. Topic Tree Navigation
-Navega pela `topic_tree` quando o tópico geral é claro.
-```
-user: "problemas com pagamento"
-topic detectado: "billing"
-→ lê sections: ["billing-overview", "billing-webhooks"]
-```
-
-### 4. Related Chain
-Expande leitura via `related[]` se a primeira seção não for suficiente.
-```
-leu: "auth-overview"
-não resolveu → lê "auth-jwt" (está em related[])
-```
-
----
-
-## Convenções de Nomeação
-
-| Campo | Convenção | Exemplo |
-|-------|-----------|---------|
-| `id` | `{topic}-{subtopic}` | `auth-jwt` |
-| `topic` | snake_case singular | `authentication` |
-| `subtopic` | snake_case | `jwt_tokens` |
-| `file` | `sections/{topic}.md` | `sections/auth.md` |
-| `lines` | `[start, end]` inclusivo, 1-indexed | `[46, 130]` |
-
----
-
-## Campo `complexity`
-
-| Valor | Significado |
-|-------|-------------|
-| `basic` | Conceito geral, leitura recomendada primeiro |
-| `intermediate` | Implementação prática |
-| `advanced` | Edge cases, tuning, detalhes internos |
-| `reference` | Tabelas, listas de API, não narrativo |
-
----
-
-## Tooling: index.json Generator
-
-Um script `generate-index.py` pode ser incluído na skill para
-manter o index.json atualizado automaticamente:
-
-```python
-# Lê todos os sections/*.md
-# Extrai headings H2/H3 como topics/subtopics
-# Conta linhas por seção
-# Atualiza index.json mantendo keywords/triggers manuais
-```
-
----
-
-## Comparação com Padrão Atual
-
-| | SKILL.md Padrão Atual | ISS v0.1 |
-|---|---|---|
-| Nível 1 | frontmatter (~10 linhas) | frontmatter + ponteiro (~15 linhas) |
-| Nível 2 | corpo do SKILL.md (ilimitado) | index.json (~200 linhas) |
-| Nível 3 | arquivos extras (inferido) | sections com line ranges (determinístico) |
-| Matching | semântico (LLM decide) | keywords + triggers + topic_tree |
-| Linha total (exemplo) | 3200 | ~330 |
-| Compatibilidade | — | 100% retrocompatível com Agent Skills spec |
-
----
-
-## Compatibilidade
-
-Este padrão é **100% compatível** com o Agent Skills spec atual:
-- `SKILL.md` ainda começa com frontmatter YAML válido
-- A presença de `index: index.json` é um campo de metadados opcional
-- Skills sem `index.json` continuam funcionando normalmente
-- Agentes que não entendem ISS simplesmente ignoram o campo `index`
+- `SKILL.md` still uses standard YAML frontmatter
+- The `indexed-skill` field is optional metadata; agents that do not understand it simply ignore it
+- INDEX and SECTION markers are HTML comments, invisible to standard Markdown renderers
+- Skills without `indexed-skill` in their frontmatter continue to work as before
 
 ---
 
 ## Roadmap
 
-- [ ] v0.1 — Especificação base (este documento)
-- [ ] v0.2 — JSON Schema formal para validação do index.json
-- [ ] v0.3 — CLI: `iss generate` para auto-gerar index.json
-- [ ] v0.4 — CLI: `iss validate` para checar conformidade
-- [ ] v0.5 — Suporte a `embeddings` opcionais por seção (vetor semântico pré-computado)
-- [ ] v1.0 — Estável, submetido para agentskills/agentskills
+- [ ] **v0.1** -- Specification document, examples, and companion skills (this release)
+- [ ] **v0.2** -- JSON Schema for formal validation of marker syntax
+- [ ] **v0.3** -- CLI tool: `iss validate` to check conformance
+- [ ] **v0.4** -- CLI tool: `iss create` to scaffold indexed skills from existing content
+- [ ] **v0.5** -- Optional embedding vectors per section for semantic matching
+- [ ] **v1.0** -- Stable release, submitted for upstream adoption
 
 ---
 
-## Repositório Sugerido
-
-```
-github.com/seu-usuario/indexed-skills-spec
-├── README.md
-├── SPEC.md              # este documento
-├── schema/
-│   └── v0.1.json        # JSON Schema para validação
-├── examples/
-│   ├── simple-skill/    # skill pequena usando ISS
-│   └── large-skill/     # skill com 3000+ linhas usando ISS
-├── tools/
-│   ├── generate.py      # gera index.json a partir de sections/
-│   └── validate.py      # valida conformidade com o schema
-└── CONTRIBUTING.md
-```
-
----
-
-*Indexed Skills Specification (ISS) v0.1 — Proposta aberta para contribuição da comunidade*
-*Inspirado em: Agent Skills (Anthropic), llms.txt (Jeremy Howard/Answer.AI), Inverted Index (Lucene)*
+*Indexed Skills Specification (ISS) v0.1 -- Open proposal for community contribution.*
+*Inspired by: Agent Skills (Anthropic), llms.txt (Jeremy Howard/Answer.AI), database indexing techniques.*
