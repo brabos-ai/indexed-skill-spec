@@ -1,6 +1,6 @@
 {
   "name": "idx-skill",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI to install indexed skills from xmaiconx/indexed-skill-spec into your AI provider directories.",
   "type": "module",
   "bin": {
@@ -25,5 +25,8 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/xmaiconx/indexed-skill-spec.git"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
