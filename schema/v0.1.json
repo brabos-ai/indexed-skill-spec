@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/xmaiconx/indexed-skill-spec/schema/v0.1.json",
+  "title": "Indexed Skill Specification v0.1",
+  "description": "Validates the frontmatter structure of an indexed skill.",
+  "type": "object",
+  "required": ["name", "description", "indexed-skill"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The name of the indexed skill."
+    },
+    "description": {
+      "type": "string",
+      "description": "A brief description of the indexed skill."
+    },
+    "indexed-skill": {
+      "type": "string",
+      "enum": ["tier 1", "tier 2"],
+      "description": "The tier classification of the indexed skill."
+    }
+  },
+  "additionalProperties": false
+}
