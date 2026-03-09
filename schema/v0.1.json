@@ -20,5 +20,5 @@
       "description": "The tier classification of the indexed skill."
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }
