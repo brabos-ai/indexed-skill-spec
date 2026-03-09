@@ -1,6 +1,6 @@
 {
   "name": "idx-skill",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "CLI to install indexed skills from xmaiconx/indexed-skill-spec into your AI provider directories.",
   "type": "module",
   "bin": {
@@ -24,7 +24,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xmaiconx/indexed-skill-spec.git"
+    "url": "git+https://github.com/brabos-ai/indexed-skill-spec.git"
   },
   "publishConfig": {
     "access": "public"
