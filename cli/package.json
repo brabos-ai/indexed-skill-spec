@@ -1,0 +1,29 @@
+{
+  "name": "idx-skill",
+  "version": "0.1.0",
+  "description": "CLI to install indexed skills from xmaiconx/indexed-skill-spec into your AI provider directories.",
+  "type": "module",
+  "bin": {
+    "idx-skill": "./bin/idx-skill.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --experimental-test-module-mocks --test"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.10.0",
+    "adm-zip": "^0.5.10"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xmaiconx/indexed-skill-spec.git"
+  }
+}
