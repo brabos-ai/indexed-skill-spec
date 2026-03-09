@@ -1,36 +1,55 @@
 ---
 name: indexed-skill-creator
 description: >
-  Teaches AI agents how to create skills following the Indexed Skills
-  Specification (ISS v0.1). Use when asked to create or convert a skill
-  to the indexed format.
+  How to create skills following the Indexed Skills Specification (ISS v0.1).
+  Use when the user explicitly asks to create an indexed skill, or when
+  converting documentation with clearly separable topics (e.g., API docs,
+  platform guides) into a skill. Do NOT use for skills that need to be
+  read as a whole to be effective.
 ---
 # Indexed Skill Creator
 
-Guide for authoring indexed skills. Covers tier selection, structure, markers,
-keywords, sizing, and naming conventions.
+Guide for authoring indexed skills — skills whose content can be consumed
+surgically by section, rather than loaded in full.
 
-<!-- INDEX
-@choose-tier | tier-selection | Decision criteria for choosing Tier 1 vs Tier 2
-@create-tier1 | tier-1 | How to create a single-file Tier 1 indexed skill
-@create-tier2 | tier-2 | How to create a multi-file Tier 2 indexed skill
-@keywords | keywords | Guidelines for writing effective section keywords
-@section-sizing | sizing | Recommended section sizes and when to split
-@naming | naming | Naming conventions for section IDs and file paths
--->
+## When to Use Indexed Skills
 
-<!-- SECTION:choose-tier | keywords: tier,choose,decision,single,multi,size,lines | Decision criteria for choosing Tier 1 vs Tier 2 -->
+Not every skill should be indexed. Indexed skills work best when:
+
+- **Content has clearly separable topics** — each section stands on its own
+  and can be consumed independently (e.g., API documentation where each
+  endpoint is self-contained, platform guides with distinct subsystems).
+- **An agent rarely needs the full content** — most tasks only require
+  1-2 sections out of many.
+
+Do NOT index a skill when:
+
+- **The content must be read as a whole** — workflows, step-by-step guides,
+  or skills where context from earlier sections is required to understand
+  later ones.
+- **The skill is small enough to load entirely** — if the full skill is
+  under ~100 lines, indexing adds overhead without benefit.
+- **Sections are tightly coupled** — if most tasks require reading 3+
+  sections together, indexing provides little savings.
+
+Good candidates: API documentation, platform reference guides, configuration
+references, troubleshooting databases, multi-service infrastructure docs.
+
+Bad candidates: onboarding tutorials, coding style guides, workflow
+orchestration skills, skills with sequential dependencies.
+
 ## Choosing a Tier
 
-- **Tier 1** — Skill fits in a single file, total content under ~300 lines.
-  Ideal for focused topics with 2-5 sections.
-- **Tier 2** — Skill spans multiple files or topics, total content over ~300
-  lines. Each file groups related sections together.
+- **Tier 1** — Content fits in a single file. Typically under ~300 lines
+  with 2-5 independent sections. Use when topics are few but each is
+  substantial enough to benefit from selective reading.
+- **Tier 2** — Content spans multiple files or covers many topics. Each
+  file groups related sections together (e.g., all auth sections in one
+  file, all billing sections in another).
 
-Rule of thumb: more than 5-6 sections or over 300 lines means Tier 2.
-<!-- /SECTION:choose-tier -->
+Rule of thumb: more than 5-6 sections or content that naturally splits
+into distinct files means Tier 2.
 
-<!-- SECTION:create-tier1 | keywords: tier1,single,file,template,frontmatter,index,section,create | How to create a single-file Tier 1 indexed skill -->
 ## Creating a Tier 1 Skill
 
 Structure your `SKILL.md` with these parts in order:
@@ -45,14 +64,22 @@ Structure your `SKILL.md` with these parts in order:
    ---
    ```
 2. **Brief description** (2-4 lines) after the heading.
-3. **INDEX block** — `<!-- INDEX -->` listing entries as `@{section-id} | {topic} | {description}`
-4. **SECTION blocks** — each wrapped in `<!-- SECTION:{id} | keywords: {kw1,kw2,...} | {description} -->`
-   and closed with `<!-- /SECTION:{id} -->`
+3. **INDEX block** listing all sections:
+   ```
+   <!-- INDEX
+   @{section-id} | {topic} | {description}
+   -->
+   ```
+4. **SECTION blocks** wrapping each content section:
+   ```
+   <!-- SECTION:{id} | keywords: {kw1,kw2,...} | {description} -->
+   ## Section Title
+   ...content...
+   <!-- /SECTION:{id} -->
+   ```
 
 Each section ID in the INDEX must match exactly one SECTION block.
-<!-- /SECTION:create-tier1 -->
 
-<!-- SECTION:create-tier2 | keywords: tier2,multi,file,directory,sections,split,create | How to create a multi-file Tier 2 indexed skill -->
 ## Creating a Tier 2 Skill
 
 **SKILL.md** contains frontmatter with `indexed-skill: tier 2`, a brief
@@ -65,8 +92,8 @@ description, and an INDEX pointing to files:
 -->
 ```
 
-**Section files** (e.g., `sections/auth.md`) contain SECTION blocks only — no
-frontmatter needed:
+**Section files** (e.g., `sections/auth.md`) contain SECTION blocks only —
+no frontmatter needed:
 
 ```
 <!-- SECTION:auth-overview | keywords: auth,login,oauth | Auth overview -->
@@ -76,9 +103,7 @@ frontmatter needed:
 ```
 
 Multiple SECTION blocks can live in a single section file.
-<!-- /SECTION:create-tier2 -->
 
-<!-- SECTION:keywords | keywords: keyword,synonym,search,tag,discover,write | Guidelines for writing effective section keywords -->
 ## Writing Good Keywords
 
 - **Format**: lowercase, comma-separated, no spaces after commas
@@ -91,18 +116,14 @@ Multiple SECTION blocks can live in a single section file.
   than 8 adds noise.
 
 Example: `keywords: jwt,token,refresh,access,bearer,auth,verify`
-<!-- /SECTION:keywords -->
 
-<!-- SECTION:section-sizing | keywords: size,lines,length,split,limit,large | Recommended section sizes and when to split -->
 ## Section Sizing
 
 - **Ideal range**: 20-80 lines per section.
 - **Upper limit**: sections over ~100 lines should be split.
 - **Cohesion**: each section covers one concept. Topic switch = split point.
 - **Minimum**: under 10 lines is too granular — merge with a related section.
-<!-- /SECTION:section-sizing -->
 
-<!-- SECTION:naming | keywords: name,convention,id,kebab,path,file,organize | Naming conventions for section IDs and file paths -->
 ## Naming Conventions
 
 **Section IDs** — Use `{topic}-{subtopic}` in kebab-case:
@@ -113,4 +134,3 @@ Example: `keywords: jwt,token,refresh,access,bearer,auth,verify`
 - Examples: `sections/auth.md`, `sections/billing.md`, `sections/deploy.md`
 - Group related sections in the same file (e.g., `auth-overview` and
   `auth-jwt` both live in `sections/auth.md`).
-<!-- /SECTION:naming -->

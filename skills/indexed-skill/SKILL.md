@@ -1,8 +1,11 @@
 ---
 name: indexed-skill
 description: >
-  Teaches AI agents how to consume Indexed Skills (ISS v0.1).
-  Use when encountering a skill with indexed-skill in its frontmatter.
+  How to consume Indexed Skills (ISS v0.1) efficiently — reading only
+  the sections you need instead of the full file. MUST use this skill
+  whenever you detect `indexed-skill: tier 1` or `indexed-skill: tier 2`
+  in any skill's YAML frontmatter. Covers detection, index parsing,
+  section grep, and surgical line-range reading for both tiers.
 ---
 
 # Indexed Skill Consumer
@@ -66,7 +69,7 @@ Content is split across multiple files. The root `SKILL.md` contains an index th
 3. **List sections in target file.** Grep for `<!-- SECTION:` in the target file. Each section marker follows this format:
 
    ```
-   <!-- SECTION:{id} | keywords: {kw1, kw2} | {title} -->
+   <!-- SECTION:{id} | keywords: {kw1,kw2} | {title} -->
    ```
 
    Parse with regex: `<!-- SECTION:(\S+) \| keywords: (.+?) \| (.+?) -->`
