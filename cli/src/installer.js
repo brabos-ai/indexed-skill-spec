@@ -8,6 +8,12 @@ import { resolveSelected, PROVIDERS } from './providers.js';
 import { downloadBranchZip } from './github.js';
 import { writeManifest, readManifest } from './manifest.js';
 
+/** Old wrong paths that may exist from previous installs (used for migration warning). */
+const OLD_WRONG_PATHS = {
+  codex: '.agent/skills',
+  antigravity: '.agents/skills',
+};
+
 /**
  * Copy entries from zip matching a source prefix to a destination directory.
  * Strips `{zipRoot}/{srcPrefix}/` from each entry name before writing.
@@ -45,21 +51,28 @@ export function copyFromZip(zip, zipRoot, srcPrefix, destDir, cwd) {
 }
 
 /**
- * Install flow: interactive provider selection → download → extract → copy → gitignore → manifest.
- * @param {string} cwd  project root
+ * Install flow: interactive provider selection (or direct via providerKeys) → download → extract → copy → gitignore → manifest.
+ * @param {string} cwd           project root
+ * @param {string[]} [providerKeys]  if provided, skip interactive prompts and install these providers directly
  */
-export async function install(cwd) {
+export async function install(cwd, providerKeys) {
   intro('idx-skill - Install');
 
-  const selectedKeys = await promptProviders();
+  let selectedKeys;
 
-  if (selectedKeys.length === 0) {
-    log.warn('No providers selected.');
-    outro('No providers selected. Installation cancelled.');
-    return;
+  if (providerKeys && providerKeys.length > 0) {
+    selectedKeys = providerKeys;
+  } else {
+    selectedKeys = await promptProviders(cwd);
+
+    if (selectedKeys.length === 0) {
+      log.warn('No providers selected.');
+      outro('No providers selected. Installation cancelled.');
+      return;
+    }
   }
 
-  const addToGitignore = await promptGitignore();
+  const addToGitignore = (providerKeys && providerKeys.length > 0) ? true : await promptGitignore();
 
   const s = spinner();
 
@@ -113,6 +126,7 @@ export async function install(cwd) {
 
 /**
  * Update flow: reads manifest → re-downloads → overwrites skills → updates manifest.
+ * Warns if old wrong paths (from previous buggy installs) are found in cwd.
  * @param {string} cwd  project root
  */
 export async function update(cwd) {
@@ -123,6 +137,17 @@ export async function update(cwd) {
   }
 
   intro('idx-skill - Update');
+
+  // Migration warning: check for old wrong paths from buggy previous installs
+  for (const [key, oldPath] of Object.entries(OLD_WRONG_PATHS)) {
+    if (fs.existsSync(path.join(cwd, oldPath))) {
+      log.warn(
+        `Found old install path for ${key}: ${oldPath}/ — this path was incorrect and is no longer used.\n` +
+          `  New path: ${PROVIDERS[key]?.dest ?? oldPath}\n` +
+          `  You can safely delete ${oldPath}/ manually.`
+      );
+    }
+  }
 
   const s = spinner();
 
@@ -185,6 +210,26 @@ export function list(cwd) {
   for (const key of manifest.providers) {
     const dest = PROVIDERS[key]?.dest ?? key;
     console.log(`  • ${key.padEnd(14)} → ${dest}/`);
+  }
+
+  console.log('');
+}
+
+/**
+ * Check flow: scans cwd for each known provider's config folder and prints detection status.
+ * @param {string} cwd  project root
+ */
+export function check(cwd) {
+  console.log('');
+  console.log('idx-skill - Provider Detection');
+  console.log('─'.repeat(50));
+
+  for (const [key, p] of Object.entries(PROVIDERS)) {
+    const folderPath = path.join(cwd, p.folder);
+    const found = fs.existsSync(folderPath);
+    const status = found ? '✅' : '❌';
+    const destInfo = found ? ` → ${p.dest}/` : ' not found';
+    console.log(`  ${status} ${p.folder.padEnd(16)}${destInfo}  (${key})`);
   }
 
   console.log('');

@@ -144,3 +144,11 @@ vite.config.ts.timestamp-*
 .codeadd/*
 .opencode/*
 debug.log
+
+# ADD - managed by code-addiction
+.codeadd/
+.claude/
+.agent/
+.agents/
+.opencode/
+# END ADD
