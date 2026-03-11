@@ -102,6 +102,20 @@ describe('install()', () => {
     assert.ok(!fs.existsSync(manifestPath), 'manifest should not be written when no providers selected');
   });
 
+  it('empty providerKeys array falls through to prompt path (treated as no direct keys)', async () => {
+    promptState.providers = [];
+    promptState.gitignore = false;
+    githubState.shouldFail = false;
+
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'empty-keys-'));
+    // install(dir, []) should treat [] same as no providerKeys — falls to prompt, prompt returns [], aborts
+    await assert.doesNotReject(() => install(dir, []));
+
+    // No manifest should be written since promptState returns empty selection
+    const manifestPath = path.join(dir, '.indexed-skill', 'manifest.json');
+    assert.ok(!fs.existsSync(manifestPath), 'manifest should not be written when providerKeys is empty array');
+  });
+
   it('handles downloadBranchZip failure gracefully (no throw)', async () => {
     promptState.providers = ['claudecode'];
     promptState.gitignore = false;
@@ -160,6 +174,48 @@ describe('install()', () => {
       '.gitignore should contain a relevant entry'
     );
   });
+
+  it('installs directly to specified providerKeys without calling promptProviders', async () => {
+    githubState.shouldFail = false;
+    githubState.buffer = buildZipBuffer({
+      'indexed-skill-spec-main/skills/skill-a.md': '# Skill A',
+    });
+    // promptState is set to something different — if promptProviders were called it would install wrong provider
+    promptState.providers = ['gemini'];
+
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'direct-keys-'));
+    await assert.doesNotReject(() => install(dir, ['claudecode']));
+
+    const manifestPath = path.join(dir, '.indexed-skill', 'manifest.json');
+    assert.ok(fs.existsSync(manifestPath), 'manifest should be written');
+
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    assert.deepEqual(manifest.providers, ['claudecode'], 'should install only claudecode, not gemini from promptState');
+  });
+
+  it('installs multiple provider keys when passed directly', async () => {
+    githubState.shouldFail = false;
+    githubState.buffer = buildZipBuffer({
+      'indexed-skill-spec-main/skills/skill-b.md': '# Skill B',
+    });
+
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'multi-keys-'));
+    await assert.doesNotReject(() => install(dir, ['claudecode', 'gemini']));
+
+    const manifestPath = path.join(dir, '.indexed-skill', 'manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    assert.deepEqual(manifest.providers, ['claudecode', 'gemini']);
+  });
+
+  it('handles download failure gracefully when providerKeys is provided', async () => {
+    githubState.shouldFail = true;
+
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'keys-fail-'));
+    await assert.doesNotReject(() => install(dir, ['claudecode']));
+
+    const manifestPath = path.join(dir, '.indexed-skill', 'manifest.json');
+    assert.ok(!fs.existsSync(manifestPath), 'manifest should not be written on download failure');
+  });
 });
 
 // ─── update() tests ───────────────────────────────────────────────────────────
@@ -199,6 +255,29 @@ describe('update()', () => {
     // Now simulate download failure on update
     githubState.shouldFail = true;
     await assert.doesNotReject(() => update(dir));
+  });
+
+  it('does not throw when old wrong paths exist in cwd (migration warning)', async () => {
+    githubState.shouldFail = false;
+    githubState.buffer = buildZipBuffer({
+      'indexed-skill-spec-main/skills/skill-a.md': '# Skill A',
+    });
+
+    // First install to create a manifest
+    promptState.providers = ['claudecode'];
+    promptState.gitignore = false;
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'migration-'));
+    await install(dir);
+
+    // Simulate old wrong paths that would trigger migration warnings
+    fs.mkdirSync(path.join(dir, '.agent', 'skills'), { recursive: true });   // old codex path
+    fs.mkdirSync(path.join(dir, '.agents', 'skills'), { recursive: true });  // old antigravity path
+
+    githubState.buffer = buildZipBuffer({
+      'indexed-skill-spec-main/skills/skill-a.md': '# Skill A',
+    });
+
+    await assert.doesNotReject(() => update(dir), 'update should not throw when old paths exist');
   });
 
   it('re-installs from manifest providers and updates manifest', async () => {

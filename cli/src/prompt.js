@@ -1,14 +1,21 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { multiselect, confirm, isCancel } from '@clack/prompts';
 import { PROVIDERS } from './providers.js';
 
 /**
  * Show interactive multi-select for AI providers.
+ * Auto-detects providers whose config folders exist in cwd and pre-selects them.
  * Returns the selected provider keys.
- * No providers pre-selected (no initialValues).
  * Throws with message 'USER_CANCEL' if user cancels.
+ * @param {string} cwd  project root
  * @returns {Promise<string[]>}
  */
-export async function promptProviders() {
+export async function promptProviders(cwd) {
+  const detected = Object.entries(PROVIDERS)
+    .filter(([, p]) => fs.existsSync(path.join(cwd, p.folder)))
+    .map(([key]) => key);
+
   const options = Object.entries(PROVIDERS).map(([value, { label, hint }]) => ({
     value,
     label,
@@ -18,6 +25,7 @@ export async function promptProviders() {
   const selected = await multiselect({
     message: 'Select AI providers to install',
     options,
+    initialValues: detected,
     required: false,
   });
 

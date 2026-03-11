@@ -3,7 +3,14 @@
     "allow": [
       "Read(//c/Users/maico/.claude/plugins/cache/claude-plugins-official/superpowers/4.3.1/skills/subagent-driven-development/**)",
       "WebFetch(domain:colab.research.google.com)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Read(//c/github/terceiros/spec-kit/**)",
+      "Read(//c/github/terceiros/spec-kit/src/**)",
+      "Read(//c/github/terceiros/spec-kit/scripts/**)",
+      "Bash(bash .codeadd/scripts/log-jsonl.sh \"docs/features/0001F-multi-provider-install/iterations.jsonl\" \"add\" \"/dev\" '\"\"slug\"\":\"\"multi-provider-cli\"\",\"\"what\"\":\"\"18 providers, aliases, check cmd, --provider flag, auto-detect\"\",\"\"files\"\":[\"\"cli/src/providers.js\"\",\"\"cli/src/prompt.js\"\",\"\"cli/src/installer.js\"\",\"\"cli/bin/idx-skill.js\"\"]')",
+      "Bash(node --experimental-test-module-mocks --test)",
+      "Bash(bash .codeadd/scripts/log-jsonl.sh \"docs/features/0001F-multi-provider-install/iterations.jsonl\" \"test\" \"/add-test\" '\"\"slug\"\":\"\"test-multi-provider\"\",\"\"what\"\":\"\"76 tests, 100% pass — providers, aliases, check, providerKeys, auto-detect\"\",\"\"files\"\":[\"\"cli/test/providers.test.js\"\",\"\"cli/test/prompt.test.js\"\",\"\"cli/test/installer.test.js\"\",\"\"cli/test/installer-mocked.test.js\"\"]')",
+      "Bash(wc -l '/c/github/xmaiconx/indexed-skill-spec/skills/vercel-ai-sdk/sections/'*.md)"
     ]
   }
 }

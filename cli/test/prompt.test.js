@@ -1,26 +1,40 @@
 /**
- * Tests for prompt.js — promptProviders() and promptGitignore()
+ * Tests for prompt.js — promptProviders(cwd) and promptGitignore()
  *
  * IMPORTANT: mock.module() must be registered BEFORE any dynamic import of
  * prompt.js. We use top-level await here so the mock is in place before the
  * module is first imported.
  */
 
-import { describe, it, mock } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { mock } from 'node:test';
+
+// ─── Shared test directory ────────────────────────────────────────────────────
+
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'idx-skill-prompt-'));
 
 // ─── Mock @clack/prompts BEFORE importing prompt.js ──────────────────────────
 
 // We need a mutable delegate so individual tests can change the behaviour.
+// capturedOpts captures what multiselect receives (for inspecting initialValues).
 const clackState = {
   multiselectResult: ['claudecode'],
   confirmResult: true,
   isCancelResult: false,
 };
 
+let capturedMultiselectOpts = null;
+
 await mock.module('@clack/prompts', {
   namedExports: {
-    multiselect: async (_opts) => clackState.multiselectResult,
+    multiselect: async (opts) => {
+      capturedMultiselectOpts = opts;
+      return clackState.multiselectResult;
+    },
     confirm: async (_opts) => clackState.confirmResult,
     isCancel: (_val) => clackState.isCancelResult,
   },
@@ -37,7 +51,7 @@ describe('promptProviders()', () => {
     clackState.multiselectResult = ['claudecode'];
     clackState.isCancelResult = false;
 
-    const result = await promptProviders();
+    const result = await promptProviders(tmpDir);
     assert.ok(Array.isArray(result), 'result should be an array');
     assert.deepEqual(result, ['claudecode']);
   });
@@ -46,7 +60,7 @@ describe('promptProviders()', () => {
     clackState.multiselectResult = [];
     clackState.isCancelResult = false;
 
-    const result = await promptProviders();
+    const result = await promptProviders(tmpDir);
     assert.ok(Array.isArray(result));
     assert.equal(result.length, 0);
   });
@@ -55,18 +69,17 @@ describe('promptProviders()', () => {
     clackState.multiselectResult = ['claudecode', 'codex'];
     clackState.isCancelResult = false;
 
-    const result = await promptProviders();
+    const result = await promptProviders(tmpDir);
     assert.deepEqual(result, ['claudecode', 'codex']);
   });
 
   it('throws USER_CANCEL when isCancel returns true', async () => {
-    // The cancel symbol can be any value; what matters is that isCancel returns true.
     const cancelSymbol = Symbol('cancel');
     clackState.multiselectResult = cancelSymbol;
     clackState.isCancelResult = true;
 
     await assert.rejects(
-      () => promptProviders(),
+      () => promptProviders(tmpDir),
       (err) => {
         assert.ok(err instanceof Error);
         assert.equal(err.message, 'USER_CANCEL');
@@ -77,6 +90,47 @@ describe('promptProviders()', () => {
     // Reset to non-cancel state for subsequent tests
     clackState.multiselectResult = ['claudecode'];
     clackState.isCancelResult = false;
+  });
+
+  it('passes empty initialValues when no provider folders exist in cwd', async () => {
+    const emptyDir = fs.mkdtempSync(path.join(tmpDir, 'empty-'));
+    clackState.multiselectResult = [];
+    clackState.isCancelResult = false;
+
+    await promptProviders(emptyDir);
+
+    assert.ok(Array.isArray(capturedMultiselectOpts?.initialValues), 'initialValues should be an array');
+    assert.equal(capturedMultiselectOpts.initialValues.length, 0, 'no pre-selections when no folders exist');
+  });
+
+  it('pre-selects provider whose config folder exists in cwd', async () => {
+    const detectionDir = fs.mkdtempSync(path.join(tmpDir, 'detect-'));
+    fs.mkdirSync(path.join(detectionDir, '.claude'));
+
+    clackState.multiselectResult = ['claudecode'];
+    clackState.isCancelResult = false;
+
+    await promptProviders(detectionDir);
+
+    assert.ok(Array.isArray(capturedMultiselectOpts?.initialValues), 'initialValues should be an array');
+    assert.ok(
+      capturedMultiselectOpts.initialValues.includes('claudecode'),
+      'claudecode should be pre-selected when .claude/ folder exists'
+    );
+  });
+
+  it('pre-selects multiple providers when multiple folders exist', async () => {
+    const multiDir = fs.mkdtempSync(path.join(tmpDir, 'multi-'));
+    fs.mkdirSync(path.join(multiDir, '.claude'));
+    fs.mkdirSync(path.join(multiDir, '.gemini'));
+
+    clackState.multiselectResult = ['claudecode', 'gemini'];
+    clackState.isCancelResult = false;
+
+    await promptProviders(multiDir);
+
+    assert.ok(capturedMultiselectOpts.initialValues.includes('claudecode'), 'claudecode pre-selected');
+    assert.ok(capturedMultiselectOpts.initialValues.includes('gemini'), 'gemini pre-selected');
   });
 });
 

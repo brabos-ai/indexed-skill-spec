@@ -48,7 +48,12 @@ All content lives in one `SKILL.md`. Sections are delimited by markers inside th
 
 4. **Read the line range.** Read only the lines between start and end (inclusive). Do not read the entire file.
 
-5. **Follow related sections.** If the loaded section references other section IDs, repeat steps 3-4 for those sections.
+5. **Follow related sections.** Check for `<!-- RELATED: ... -->` tags at the end of the loaded section.
+   - Same-file reference: `<!-- RELATED: #section-id -->`
+   - Cross-file reference: `<!-- RELATED: path/to/file.md#section-id -->`
+   - In Tier 1, prefer same-file references. If a path is present, resolve it relative to the skill root.
+   - Follow RELATED tags only if the current section does not fully resolve the task.
+   - Keep a set of visited targets and do not revisit the same section in the same traversal.
 
 ## 3. Tier 2 Consumption (multi-file indexed skill)
 
@@ -82,7 +87,11 @@ Content is split across multiple files. The root `SKILL.md` contains an index th
 
 6. **Read the line range.** Read only the lines between start and end (inclusive).
 
-7. **Follow related sections.** If the loaded section references other section IDs or files, repeat from step 3 or step 2 as needed.
+7. **Follow related sections.** Check for `<!-- RELATED: ... -->` tags at the end of the loaded section.
+   - Same-file reference: `<!-- RELATED: #section-id -->`
+   - Cross-file reference: `<!-- RELATED: path/to/file.md#section-id -->`
+   - If the current section is insufficient, load the referenced section by repeating from step 3 for same-file references or step 2 for cross-file references.
+   - Keep a set of visited targets and do not revisit the same section in the same traversal.
 
 ## 4. Regex Reference
 
@@ -91,6 +100,7 @@ Content is split across multiple files. The root `SKILL.md` contains an index th
 | Index entry    | `@(.+?) \| (.+?) \| (.+)`                           |
 | Section open   | `<!-- SECTION:(\S+) \| keywords: (.+?) \| (.+?) -->` |
 | Section close  | `<!-- /SECTION:(\S+) -->`                            |
+| Related ref    | `<!-- RELATED: (.+?) -->`                            |
 
 ## 5. Best Practices
 
@@ -98,5 +108,7 @@ Content is split across multiple files. The root `SKILL.md` contains an index th
 - **Use keyword matching** between your current task and the index entries to find relevant sections.
 - **Prefer grep over full file reads.** Use grep to locate markers and read only the needed line ranges.
 - **Follow references.** If the first matched section is insufficient or references related sections, load those too.
+- **Prefer local references in Tier 1.** Use `#section-id` for same-file navigation when all sections live in one `SKILL.md`.
 - **Respect tier boundaries.** Tier 1 stays within one file; Tier 2 navigates across files. Do not mix the algorithms.
+- **Avoid traversal loops.** Track visited RELATED targets during a single task.
 - **Cache nothing across turns.** Line numbers may shift between conversations. Always grep for fresh positions.

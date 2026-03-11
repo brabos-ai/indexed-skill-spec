@@ -1,0 +1,2 @@
+{"ts":"2026-03-09T20:48:06Z","agent":"/dev","type":"add","slug":"multi-provider-cli","what":"18 providers, aliases, check cmd, --provider flag, auto-detect","files":["cli/src/providers.js","cli/src/prompt.js","cli/src/installer.js","cli/bin/idx-skill.js"]}
+{"ts":"2026-03-10T00:33:26Z","agent":"/add-test","type":"test","slug":"test-multi-provider","what":"76 tests, 100% pass — providers, aliases, check, providerKeys, auto-detect","files":["cli/test/providers.test.js","cli/test/prompt.test.js","cli/test/installer.test.js","cli/test/installer-mocked.test.js"]}

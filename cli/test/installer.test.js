@@ -5,8 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import AdmZip from 'adm-zip';
 
-import { copyFromZip } from '../src/installer.js';
-import { list } from '../src/installer.js';
+import { copyFromZip, list, check } from '../src/installer.js';
 import { writeManifest } from '../src/manifest.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -187,6 +186,25 @@ describe('list()', () => {
     );
   });
 
+  it('shows provider dest path when manifest exists', () => {
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'dest-path-'));
+    writeManifest(dir, ['gemini'], []);
+
+    const output = [];
+    const origLog = console.log;
+    console.log = (...args) => output.push(args.join(' '));
+
+    try {
+      list(dir);
+    } finally {
+      console.log = origLog;
+    }
+
+    const combined = output.join('\n');
+    assert.ok(combined.includes('gemini'), 'output should include provider key "gemini"');
+    assert.ok(combined.includes('.gemini/skills'), 'output should include dest path');
+  });
+
   it('shows total file count from manifest', () => {
     const dir = fs.mkdtempSync(path.join(tmpDir, 'filecount-'));
     // Create a dummy file so writeManifest can hash it
@@ -209,6 +227,100 @@ describe('list()', () => {
     assert.ok(
       combined.includes('1'),
       'output should mention the file count (1)'
+    );
+  });
+});
+
+// ─── check() ─────────────────────────────────────────────────────────────────
+
+describe('check()', () => {
+  let tmpDir;
+
+  before(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'idx-skill-check-'));
+  });
+
+  after(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('does not throw when no provider folders exist', () => {
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'empty-'));
+    assert.doesNotThrow(() => check(dir));
+  });
+
+  it('outputs a line for every provider', () => {
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'all-'));
+    const output = [];
+    const origLog = console.log;
+    console.log = (...args) => output.push(args.join(' '));
+
+    try {
+      check(dir);
+    } finally {
+      console.log = origLog;
+    }
+
+    // 18 providers + header lines
+    const providerLines = output.filter((l) => l.includes('✅') || l.includes('❌'));
+    assert.equal(providerLines.length, 18, 'should output one line per provider');
+  });
+
+  it('marks provider as detected (✅) when its folder exists', () => {
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'detected-'));
+    fs.mkdirSync(path.join(dir, '.claude'));
+
+    const output = [];
+    const origLog = console.log;
+    console.log = (...args) => output.push(args.join(' '));
+
+    try {
+      check(dir);
+    } finally {
+      console.log = origLog;
+    }
+
+    const combined = output.join('\n');
+    assert.ok(combined.includes('✅'), 'should show ✅ for detected provider');
+    assert.ok(combined.includes('claudecode'), 'should mention claudecode key');
+  });
+
+  it('marks provider as not found (❌) when its folder does not exist', () => {
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'not-found-'));
+
+    const output = [];
+    const origLog = console.log;
+    console.log = (...args) => output.push(args.join(' '));
+
+    try {
+      check(dir);
+    } finally {
+      console.log = origLog;
+    }
+
+    const combined = output.join('\n');
+    assert.ok(combined.includes('❌'), 'should show ❌ for missing providers');
+    assert.ok(combined.includes('not found'), 'should say "not found" for missing providers');
+  });
+
+  it('shows dest path for detected provider', () => {
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'dest-'));
+    fs.mkdirSync(path.join(dir, '.claude'));
+
+    const output = [];
+    const origLog = console.log;
+    console.log = (...args) => output.push(args.join(' '));
+
+    try {
+      check(dir);
+    } finally {
+      console.log = origLog;
+    }
+
+    const combined = output.join('\n');
+    assert.ok(
+      combined.includes('.claude/skills'),
+      'should show dest path for detected claudecode provider'
     );
   });
 });

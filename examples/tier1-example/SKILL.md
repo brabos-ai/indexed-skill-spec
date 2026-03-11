@@ -49,6 +49,7 @@ across consumers, and prevents resource exhaustion during traffic spikes.
 For most REST APIs, **token bucket** offers the best balance between burst
 tolerance and simplicity. Use sliding window when you need precise per-second
 accuracy for billing or compliance purposes.
+<!-- RELATED: #rate-config -->
 <!-- /SECTION:rate-overview -->
 
 <!-- SECTION:rate-config | keywords: config,configure,limit,endpoint,tier,plan,redis | How to configure rate limits per endpoint -->
@@ -104,6 +105,7 @@ RATE_LIMIT_KEY_PREFIX=rl:
 When Redis is unavailable, the limiter falls back to in-memory counters with
 a warning logged at `WARN` level. Monitor the `rate_limiter.fallback` metric
 to detect this condition.
+<!-- RELATED: #rate-troubleshoot -->
 <!-- /SECTION:rate-config -->
 
 <!-- SECTION:rate-headers | keywords: header,response,retry,remaining,reset,client,429 | Rate limit response headers and client handling -->
@@ -151,6 +153,7 @@ A recommended pattern:
 
 Proactive clients can also monitor `X-RateLimit-Remaining` and throttle
 outgoing requests before the limit is reached.
+<!-- RELATED: #rate-troubleshoot -->
 <!-- /SECTION:rate-headers -->
 
 <!-- SECTION:rate-troubleshoot | keywords: troubleshoot,debug,error,429,spike,bypass,whitelist | Common rate limiting issues and fixes -->
