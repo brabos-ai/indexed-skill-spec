@@ -46,6 +46,7 @@ grant_type=authorization_code
 
 The response contains an `access_token` (JWT) and a `refresh_token`.
 Store the refresh token securely; it is required for silent renewal.
+<!-- RELATED: #auth-jwt -->
 <!-- /SECTION:auth-overview -->
 
 <!-- SECTION:auth-jwt | keywords: jwt,token,bearer,refresh,expiration | JWT token implementation -->
@@ -117,6 +118,7 @@ grant_type=refresh_token
 Refresh tokens are single-use. Each response includes a new refresh
 token that replaces the previous one (rotation). If a refresh token is
 reused, the server revokes the entire token family as a security measure.
+<!-- RELATED: sections/billing.md#billing-webhooks -->
 <!-- /SECTION:auth-jwt -->
 
 <!-- SECTION:auth-apikey | keywords: apikey,key,secret,rotate,revoke | API Key management -->

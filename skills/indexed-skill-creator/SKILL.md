@@ -119,9 +119,13 @@ Example: `keywords: jwt,token,refresh,access,bearer,auth,verify`
 
 ## Section Sizing
 
-- **Ideal range**: 20-80 lines per section.
-- **Upper limit**: sections over ~100 lines should be split.
-- **Cohesion**: each section covers one concept. Topic switch = split point.
+- **Guideline**: 30-120 lines per section.
+- Sections up to ~200 lines are acceptable when the content is cohesive
+  and cannot be split without losing essential context.
+- **Priority**: completeness over brevity — never compress or omit
+  important information to meet a line target.
+- **Split signal**: topic change, not line count. If a section covers
+  two distinct concepts, split it regardless of size.
 - **Minimum**: under 10 lines is too granular — merge with a related section.
 
 ## Naming Conventions
@@ -134,3 +138,46 @@ Example: `keywords: jwt,token,refresh,access,bearer,auth,verify`
 - Examples: `sections/auth.md`, `sections/billing.md`, `sections/deploy.md`
 - Group related sections in the same file (e.g., `auth-overview` and
   `auth-jwt` both live in `sections/auth.md`).
+
+## Cross-References (RELATED Tag)
+
+Use `<!-- RELATED: -->` to link sections with strong conceptual dependencies.
+This helps agents discover additional context when the first loaded section
+is insufficient.
+
+**Format (same file):** `<!-- RELATED: #section-id -->`
+
+**Format (other file):** `<!-- RELATED: path/to/file.md#section-id -->`
+
+**Placement:** End of the section, immediately before `<!-- /SECTION: -->`.
+
+**Guidelines:**
+- Use selectively — only for high-impact dependencies, not every
+  tangential connection.
+- One RELATED tag per reference. Multiple references use multiple tags.
+- Target must be a valid section ID in the referenced file.
+- In Tier 1, prefer same-file references with `#section-id`.
+- In Tier 2, use a path only when the related section lives in another file.
+- Avoid dense cross-linking. RELATED should guide recovery and adjacent context,
+  not create a full graph between all sections.
+- Avoid unnecessary cycles. If two sections reference each other, that should be
+  intentional and high-value.
+
+**Validation checklist:**
+- The target file exists if a path is used.
+- The target section ID exists exactly once in that file.
+- The reference format matches the tier and location of the target section.
+- The referenced section adds missing context instead of repeating the same content.
+
+**Example:**
+```
+<!-- SECTION:auth-jwt | keywords: jwt,token,bearer,refresh | JWT setup -->
+## JWT Implementation
+
+To generate a JWT token...
+(content here)
+
+<!-- RELATED: #auth-overview -->
+<!-- RELATED: sections/production.md#caching -->
+<!-- /SECTION:auth-jwt -->
+```

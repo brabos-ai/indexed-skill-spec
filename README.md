@@ -92,6 +92,8 @@ Brief description of what this skill does.
 OAuth2 is the primary authentication method...
 (content here)
 
+<!-- RELATED: #auth-jwt -->
+
 <!-- /SECTION:auth-overview -->
 
 <!-- SECTION:auth-jwt | keywords: jwt,token,bearer,refresh | JWT token generation and validation -->
@@ -99,6 +101,8 @@ OAuth2 is the primary authentication method...
 
 To generate a JWT token...
 (content here)
+
+<!-- RELATED: #auth-overview -->
 
 <!-- /SECTION:auth-jwt -->
 
@@ -157,6 +161,8 @@ OAuth2 is the primary authentication method...
 To generate a JWT token...
 (content here)
 
+<!-- RELATED: sections/billing.md#billing-webhooks -->
+
 <!-- /SECTION:auth-jwt -->
 ```
 
@@ -214,6 +220,19 @@ Index entries are wrapped in an INDEX block:
 
 The `id` must be unique within the file. Keywords are comma-separated, no spaces after commas. The description is a short human-readable summary.
 
+### Related markers
+
+Use RELATED markers to link sections with strong conceptual dependencies.
+They are optional but recommended when a reader may need adjacent context to
+complete the task.
+
+**Same file:** `<!-- RELATED: #section-id -->`
+
+**Other file:** `<!-- RELATED: path/to/file.md#section-id -->`
+
+Place RELATED markers immediately before the section close marker. Use one
+RELATED marker per reference.
+
 ---
 
 ## Regex Patterns
@@ -225,6 +244,7 @@ Agents should use these patterns to parse ISS markers:
 | Index entry | `@(.+?) \| (.+?) \| (.+)` |
 | Section open | `<!-- SECTION:(\S+) \| keywords: (.+?) \| (.+?) -->` |
 | Section close | `<!-- /SECTION:(\S+) -->` |
+| Related ref | `<!-- RELATED: (.+?) -->` |
 
 ---
 
@@ -246,6 +266,12 @@ Agents should use these patterns to parse ISS markers:
    a. Grep `<!-- SECTION:id -->` -> get start line
    b. Grep `<!-- /SECTION:id -->` -> get end line
    c. Read only that line range from SKILL.md
+
+5. Check for `<!-- RELATED: ... -->` markers
+   -> `#section-id` stays in the same file
+   -> `path/file.md#section-id` loads the referenced file
+   -> Follow only if the current section is insufficient
+   -> Do not revisit sections already read
 ```
 
 ### Tier 2
@@ -268,13 +294,20 @@ Agents should use these patterns to parse ISS markers:
    a. Grep `<!-- SECTION:id -->` -> get start line
    b. Grep `<!-- /SECTION:id -->` -> get end line
    c. Read only that line range from the target file
+
+6. Check for `<!-- RELATED: ... -->` markers
+   -> `#section-id` stays in the current file
+   -> `path/file.md#section-id` loads another file
+   -> Follow only if the current section is insufficient
+   -> Do not revisit sections already read
 ```
 
 ### Key principles
 
 - **Never load full files.** Always use the index first, then read targeted line ranges.
 - **Prefer grep over full reads.** Grep for markers to find line numbers, then read only the needed range.
-- **Expand if needed.** If the first section does not resolve the task, check related sections from the same topic area.
+- **Expand if needed.** If the first section does not resolve the task, follow RELATED markers selectively.
+- **Avoid loops.** Keep a set of visited section targets and do not follow the same RELATED target twice in one traversal.
 
 ---
 
@@ -322,6 +355,7 @@ ISS is **fully backward-compatible** with the existing Agent Skills specificatio
 - `SKILL.md` still uses standard YAML frontmatter
 - The `indexed-skill` field is optional metadata; agents that do not understand it simply ignore it
 - INDEX and SECTION markers are HTML comments, invisible to standard Markdown renderers
+- RELATED markers are optional HTML comments; agents that ignore them still get valid indexed skills
 - Skills without `indexed-skill` in their frontmatter continue to work as before
 
 ---
@@ -329,8 +363,8 @@ ISS is **fully backward-compatible** with the existing Agent Skills specificatio
 ## Roadmap
 
 - [ ] **v0.1** -- Specification document, examples, and companion skills (this release)
-- [ ] **v0.2** -- JSON Schema for formal validation of marker syntax
-- [ ] **v0.3** -- CLI tool: `iss validate` to check conformance
+- [ ] **v0.2** -- JSON Schema for formal validation of marker syntax, including RELATED references
+- [ ] **v0.3** -- CLI tools: `iss lint` for structural checks and `iss doctor` for actionable diagnostics
 - [ ] **v0.4** -- CLI tool: `iss create` to scaffold indexed skills from existing content
 - [ ] **v0.5** -- Optional embedding vectors per section for semantic matching
 - [ ] **v1.0** -- Stable release, submitted for upstream adoption

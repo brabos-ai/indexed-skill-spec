@@ -41,6 +41,7 @@ def create_checkout(org_id: str, price_id: str) -> str:
 After successful payment, Stripe sends a `checkout.session.completed`
 webhook event, which the platform uses to activate the subscription
 in the local database.
+<!-- RELATED: #billing-webhooks -->
 
 ### Upgrading and Downgrading
 
@@ -139,4 +140,5 @@ manual review and an alert is sent to the on-call channel.
 Events older than 72 hours without successful processing trigger a
 reconciliation job that compares local subscription state against the
 Stripe API to detect and fix any drift.
+<!-- RELATED: sections/auth.md#auth-apikey -->
 <!-- /SECTION:billing-webhooks -->
