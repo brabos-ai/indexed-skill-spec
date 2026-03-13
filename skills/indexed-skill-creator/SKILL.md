@@ -1,11 +1,15 @@
 ---
 name: indexed-skill-creator
-description: >
-  How to create skills following the Indexed Skills Specification (ISS v0.1).
-  Use when the user explicitly asks to create an indexed skill, or when
-  converting documentation with clearly separable topics (e.g., API docs,
-  platform guides) into a skill. Do NOT use for skills that need to be
-  read as a whole to be effective.
+description: >-
+  Use when creating indexed skills with clearly separable topics
+  (e.g., API docs, platform guides), or when converting existing
+  documentation into a skill that agents can consume by section.
+  Do NOT use for skills that need to be read as a whole.
+metadata:
+  category: reference
+  triggers: indexed skill, ISS specification, section-based skill, modular documentation, tier 1 skill, tier 2 skill
+  source: internal
+  date_added: "2026-01-15"
 ---
 # Indexed Skill Creator
 
@@ -119,14 +123,12 @@ Example: `keywords: jwt,token,refresh,access,bearer,auth,verify`
 
 ## Section Sizing
 
-- **Guideline**: 30-120 lines per section.
-- Sections up to ~200 lines are acceptable when the content is cohesive
-  and cannot be split without losing essential context.
 - **Priority**: completeness over brevity — never compress or omit
-  important information to meet a line target.
-- **Split signal**: topic change, not line count. If a section covers
-  two distinct concepts, split it regardless of size.
-- **Minimum**: under 10 lines is too granular — merge with a related section.
+  important information to reduce section size.
+- **Split signal**: topic change, not size. If a section covers
+  two distinct concepts, split it regardless of length.
+- **Merge signal**: if a section is just a sentence or two with no
+  standalone value, merge it with a related section.
 
 ## Naming Conventions
 
@@ -162,6 +164,9 @@ is insufficient.
   not create a full graph between all sections.
 - Avoid unnecessary cycles. If two sections reference each other, that should be
   intentional and high-value.
+- Keep references one level deep. If section A references B, section B
+  should NOT chain to C for the same concept — an agent following
+  RELATED links should reach the answer in one hop.
 
 **Validation checklist:**
 - The target file exists if a path is used.
@@ -181,3 +186,18 @@ To generate a JWT token...
 <!-- RELATED: sections/production.md#caching -->
 <!-- /SECTION:auth-jwt -->
 ```
+
+## Common Mistakes
+
+- **INDEX/SECTION ID mismatch** — every `@{id}` in the INDEX must have
+  an exactly matching `SECTION:{id}` block. Typos break resolution.
+- **Missing closing tag** — every `<!-- SECTION:id -->` needs a matching
+  `<!-- /SECTION:id -->`. Without it the parser can't determine where
+  the section ends.
+- **Keyword stuffing** — more than 8 keywords per section adds noise.
+  Stick to 3-8 high-signal terms.
+- **Indexing small skills** — if the entire skill is under ~100 lines,
+  indexing adds overhead for no benefit. Use a plain SKILL.md instead.
+- **Forcing Tier 2 too early** — start with Tier 1. Upgrade to Tier 2
+  only when you have 5+ sections or content that naturally groups into
+  separate files.
