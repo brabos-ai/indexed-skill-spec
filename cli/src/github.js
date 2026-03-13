@@ -1,6 +1,6 @@
 import https from 'node:https';
 
-const REPO = 'xmaiconx/indexed-skill-spec';
+const REPO = 'brabos-ai/indexed-skill-spec';
 
 /**
  * Download a branch zipball as a Buffer using node:https (Node 18 compatible).

@@ -1,7 +1,7 @@
 {
   "name": "idx-skill",
   "version": "0.1.4",
-  "description": "CLI to install indexed skills from xmaiconx/indexed-skill-spec into your AI provider directories.",
+  "description": "CLI to install indexed skills from brabos-ai/indexed-skill-spec into your AI provider directories.",
   "type": "module",
   "bin": {
     "idx-skill": "./bin/idx-skill.js"
