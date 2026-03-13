@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { multiselect, confirm, isCancel } from '@clack/prompts';
+import { multiselect, confirm, isCancel, log } from '@clack/prompts';
 import { PROVIDERS } from './providers.js';
 
 /**
  * Show interactive multi-select for AI providers.
  * Auto-detects providers whose config folders exist in cwd and pre-selects them.
+ * Detected providers are listed first; the rest follow alphabetically.
  * Returns the selected provider keys.
  * Throws with message 'USER_CANCEL' if user cancels.
  * @param {string} cwd  project root
@@ -16,9 +17,23 @@ export async function promptProviders(cwd) {
     .filter(([, p]) => fs.existsSync(path.join(cwd, p.folder)))
     .map(([key]) => key);
 
-  const options = Object.entries(PROVIDERS).map(([value, { label, hint }]) => ({
+  const detectedSet = new Set(detected);
+  const total = Object.keys(PROVIDERS).length;
+
+  if (detected.length > 0) {
+    log.info(`Auto-detected ${detected.length} provider(s) in this directory (pre-selected).`);
+  }
+  log.info(`${total} providers available — use ↑↓ to scroll, space to select, 'a' to toggle all.`);
+
+  // Detected providers first, then the rest sorted alphabetically by label
+  const detectedEntries = Object.entries(PROVIDERS).filter(([key]) => detectedSet.has(key));
+  const otherEntries = Object.entries(PROVIDERS)
+    .filter(([key]) => !detectedSet.has(key))
+    .sort(([, a], [, b]) => a.label.localeCompare(b.label));
+
+  const options = [...detectedEntries, ...otherEntries].map(([value, { label, hint }]) => ({
     value,
-    label,
+    label: detectedSet.has(value) ? `${label} ✓` : label,
     hint,
   }));
 
