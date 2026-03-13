@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { multiselect, confirm, isCancel, log } from '@clack/prompts';
+import { multiselect, confirm, select, isCancel, log } from '@clack/prompts';
 import { PROVIDERS } from './providers.js';
 
 /**
@@ -42,6 +42,32 @@ export async function promptProviders(cwd) {
     options,
     initialValues: detected,
     required: false,
+  });
+
+  if (isCancel(selected)) {
+    throw new Error('USER_CANCEL');
+  }
+
+  return selected;
+}
+
+/**
+ * Show interactive version selector with latest pre-selected.
+ * Returns the selected tag string.
+ * Throws with message 'USER_CANCEL' if user cancels.
+ * @param {Array<{tag_name: string, name: string}>} releases  ordered latest-first
+ * @returns {Promise<string>}
+ */
+export async function promptVersion(releases) {
+  const options = releases.map((r, i) => ({
+    value: r.tag_name,
+    label: i === 0 ? `${r.tag_name} (latest)` : r.tag_name,
+    hint: r.name || undefined,
+  }));
+
+  const selected = await select({
+    message: 'Select version to install',
+    options,
   });
 
   if (isCancel(selected)) {

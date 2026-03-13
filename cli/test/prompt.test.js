@@ -36,13 +36,20 @@ await mock.module('@clack/prompts', {
       return clackState.multiselectResult;
     },
     confirm: async (_opts) => clackState.confirmResult,
+    select: async (_opts) => clackState.selectResult ?? 'v1.0.0',
     isCancel: (_val) => clackState.isCancelResult,
+    log: {
+      info: (_msg) => {},
+      warn: (_msg) => {},
+      error: (_msg) => {},
+      success: (_msg) => {},
+    },
   },
 });
 
 // ─── Import prompt.js AFTER mocks ────────────────────────────────────────────
 
-const { promptProviders, promptGitignore } = await import('../src/prompt.js');
+const { promptProviders, promptGitignore, promptVersion } = await import('../src/prompt.js');
 
 // ─── promptProviders ──────────────────────────────────────────────────────────
 
@@ -131,6 +138,49 @@ describe('promptProviders()', () => {
 
     assert.ok(capturedMultiselectOpts.initialValues.includes('claudecode'), 'claudecode pre-selected');
     assert.ok(capturedMultiselectOpts.initialValues.includes('gemini'), 'gemini pre-selected');
+  });
+});
+
+// ─── promptVersion ────────────────────────────────────────────────────────────
+
+describe('promptVersion()', () => {
+  const fakeReleases = [
+    { tag_name: 'v2.0.0', name: 'Release 2.0.0' },
+    { tag_name: 'v1.0.0', name: 'Release 1.0.0' },
+  ];
+
+  it('returns the selected tag string', async () => {
+    clackState.selectResult = 'v2.0.0';
+    clackState.isCancelResult = false;
+
+    const result = await promptVersion(fakeReleases);
+    assert.equal(result, 'v2.0.0');
+  });
+
+  it('returns a previous version tag when selected', async () => {
+    clackState.selectResult = 'v1.0.0';
+    clackState.isCancelResult = false;
+
+    const result = await promptVersion(fakeReleases);
+    assert.equal(result, 'v1.0.0');
+  });
+
+  it('throws USER_CANCEL when isCancel returns true', async () => {
+    const cancelSymbol = Symbol('cancel');
+    clackState.selectResult = cancelSymbol;
+    clackState.isCancelResult = true;
+
+    await assert.rejects(
+      () => promptVersion(fakeReleases),
+      (err) => {
+        assert.ok(err instanceof Error);
+        assert.equal(err.message, 'USER_CANCEL');
+        return true;
+      }
+    );
+
+    clackState.selectResult = 'v2.0.0';
+    clackState.isCancelResult = false;
   });
 });
 

@@ -2,10 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import AdmZip from 'adm-zip';
 import { intro, outro, spinner, log } from '@clack/prompts';
-import { promptProviders, promptGitignore } from './prompt.js';
+import { promptProviders, promptGitignore, promptVersion } from './prompt.js';
 import { getInstalledDirs, writeGitignoreBlock } from './gitignore.js';
 import { resolveSelected, PROVIDERS } from './providers.js';
-import { downloadBranchZip } from './github.js';
+import { fetchLatestRelease, fetchReleases, downloadTagZip } from './github.js';
 import { writeManifest, readManifest } from './manifest.js';
 
 /** Old wrong paths that may exist from previous installs (used for migration warning). */
@@ -51,11 +51,12 @@ export function copyFromZip(zip, zipRoot, srcPrefix, destDir, cwd) {
 }
 
 /**
- * Install flow: interactive provider selection (or direct via providerKeys) → download → extract → copy → gitignore → manifest.
- * @param {string} cwd           project root
- * @param {string[]} [providerKeys]  if provided, skip interactive prompts and install these providers directly
+ * Install flow: interactive provider selection (or direct via providerKeys) → download release → extract → copy → gitignore → manifest.
+ * @param {string} cwd              project root
+ * @param {string[]} [providerKeys] if provided, skip provider prompts and install these directly
+ * @param {string}  [version]       if provided, install this specific release tag (skips version prompt)
  */
-export async function install(cwd, providerKeys) {
+export async function install(cwd, providerKeys, version) {
   intro('idx-skill - Install');
 
   let selectedKeys;
@@ -76,10 +77,49 @@ export async function install(cwd, providerKeys) {
 
   const s = spinner();
 
-  s.start('Downloading skills from GitHub...');
+  // Resolve which release tag to download
+  let resolvedTag = version;
+  if (!resolvedTag) {
+    const nonInteractive = providerKeys && providerKeys.length > 0;
+    if (nonInteractive) {
+      // Non-interactive mode (--provider used): fetch latest silently, same pattern as gitignore skip
+      s.start('Fetching latest release...');
+      let latest;
+      try {
+        latest = await fetchLatestRelease();
+      } catch (err) {
+        s.stop('Failed to fetch latest release.');
+        log.error(err.message);
+        return;
+      }
+      s.stop('');
+      resolvedTag = latest.tag_name;
+    } else {
+      // Interactive mode: show version selection prompt with latest pre-selected
+      s.start('Fetching releases...');
+      let releases;
+      try {
+        releases = await fetchReleases();
+      } catch (err) {
+        s.stop('Failed to fetch releases.');
+        log.error(err.message);
+        return;
+      }
+      s.stop('');
+
+      if (!releases || releases.length === 0) {
+        log.error('No releases found.');
+        return;
+      }
+
+      resolvedTag = await promptVersion(releases);
+    }
+  }
+
+  s.start(`Downloading ${resolvedTag}...`);
   let zipBuffer;
   try {
-    zipBuffer = await downloadBranchZip('main');
+    zipBuffer = await downloadTagZip(resolvedTag);
   } catch (err) {
     s.stop('Download failed.');
     log.error(err.message);
@@ -119,14 +159,14 @@ export async function install(cwd, providerKeys) {
     log.success('.gitignore updated.');
   }
 
-  writeManifest(cwd, selectedKeys, allFiles);
+  writeManifest(cwd, selectedKeys, allFiles, resolvedTag);
 
   outro('Installed successfully');
 }
 
 /**
- * Update flow: reads manifest → re-downloads → overwrites skills → updates manifest.
- * Warns if old wrong paths (from previous buggy installs) are found in cwd.
+ * Update flow: reads manifest → fetches latest release → re-downloads → overwrites skills → updates manifest.
+ * Shows current → latest version. Warns if old wrong paths are found in cwd.
  * @param {string} cwd  project root
  */
 export async function update(cwd) {
@@ -151,10 +191,32 @@ export async function update(cwd) {
 
   const s = spinner();
 
-  s.start('Downloading skills from GitHub...');
+  s.start('Checking latest release...');
+  let latest;
+  try {
+    latest = await fetchLatestRelease();
+  } catch (err) {
+    s.stop('Failed to fetch latest release.');
+    log.error(err.message);
+    return;
+  }
+  s.stop('');
+
+  const currentVersion = manifest.version ?? 'unknown';
+  const latestTag = latest.tag_name;
+
+  if (currentVersion === latestTag) {
+    log.success(`Already up to date (${latestTag}).`);
+    outro('Nothing to update.');
+    return;
+  }
+
+  log.info(`Updating: ${currentVersion} → ${latestTag}`);
+
+  s.start(`Downloading ${latestTag}...`);
   let zipBuffer;
   try {
-    zipBuffer = await downloadBranchZip('main');
+    zipBuffer = await downloadTagZip(latestTag);
   } catch (err) {
     s.stop('Download failed.');
     log.error(err.message);
@@ -183,9 +245,9 @@ export async function update(cwd) {
 
   s.stop(`Updated ${allFiles.length} files.`);
 
-  writeManifest(cwd, manifest.providers, allFiles);
+  writeManifest(cwd, manifest.providers, allFiles, latestTag);
 
-  outro('Updated successfully');
+  outro(`Updated to ${latestTag} successfully`);
 }
 
 /**

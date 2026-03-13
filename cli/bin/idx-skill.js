@@ -19,14 +19,16 @@ Commands:
 
 Options:
   --provider <key>   Install for a specific provider (repeatable, skips prompts)
+  --version <tag>    Install a specific release version, e.g. v1.2.0 (skips version prompt)
   --json             Output JSON for lint/doctor
   -h, --help         Show this help message
-  -v, --version      Show version
+  -v                 Show CLI version
 
 Examples:
   idx-skill install
   idx-skill install --provider claudecode
   idx-skill install --provider claudecode --provider gemini
+  idx-skill install --version v1.0.0
   idx-skill check
   idx-skill lint .
   idx-skill doctor skills/indexed-skill
@@ -43,7 +45,7 @@ async function main() {
     process.exit(0);
   }
 
-  if (args.includes('--version') || args.includes('-v')) {
+  if (args.includes('-v')) {
     const { createRequire } = await import('node:module');
     const req = createRequire(import.meta.url);
     const pkg = req('../package.json');
@@ -51,9 +53,10 @@ async function main() {
     process.exit(0);
   }
 
-  // Parse --provider flags (collect, resolve aliases, deduplicate)
+  // Parse --provider and --version flags
   const providerKeys = [];
   const jsonOutput = args.includes('--json');
+  let releaseVersion;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--provider' && args[i + 1]) {
       const raw = args[i + 1];
@@ -67,6 +70,9 @@ async function main() {
         providerKeys.push(resolved);
       }
       i++; // skip next arg
+    } else if (args[i] === '--version' && args[i + 1] && !args[i + 1].startsWith('-')) {
+      releaseVersion = args[i + 1];
+      i++; // skip next arg
     }
   }
 
@@ -74,7 +80,7 @@ async function main() {
 
   try {
     if (command === 'install') {
-      await install(cwd, providerKeys.length > 0 ? providerKeys : undefined);
+      await install(cwd, providerKeys.length > 0 ? providerKeys : undefined, releaseVersion);
     } else if (command === 'update') {
       await update(cwd);
     } else if (command === 'list') {

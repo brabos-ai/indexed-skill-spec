@@ -79,4 +79,18 @@ describe('manifest', () => {
     assert.ok(typeof manifest === 'object', 'manifest should be an object');
     assert.deepEqual(manifest.providers, providers);
   });
+
+  it('manifest version is saved when provided', () => {
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'test-'));
+    writeManifest(dir, ['claudecode'], [], 'v1.2.0');
+    const manifest = readManifest(dir);
+    assert.equal(manifest.version, 'v1.2.0');
+  });
+
+  it('manifest version is null when not provided', () => {
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'test-'));
+    writeManifest(dir, ['claudecode'], []);
+    const manifest = readManifest(dir);
+    assert.equal(manifest.version, null);
+  });
 });
