@@ -1,6 +1,6 @@
 {
   "name": "idx-skill",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "CLI to install indexed skills from brabos-ai/indexed-skill-spec into your AI provider directories.",
   "type": "module",
   "bin": {
