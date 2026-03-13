@@ -23,8 +23,9 @@ function hashFile(filePath) {
  * @param {string} cwd       project root
  * @param {string[]} providers  selected provider keys
  * @param {string[]} files   relative paths (from cwd) of installed files
+ * @param {string} [version]  installed release tag (e.g. "v1.2.0")
  */
-export function writeManifest(cwd, providers, files) {
+export function writeManifest(cwd, providers, files, version) {
   const manifestDir = path.join(cwd, MANIFEST_DIR);
   fs.mkdirSync(manifestDir, { recursive: true });
 
@@ -38,6 +39,7 @@ export function writeManifest(cwd, providers, files) {
 
   const manifest = {
     installedAt: new Date().toISOString(),
+    version: version ?? null,
     providers,
     files,
     hashes,

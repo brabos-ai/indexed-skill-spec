@@ -20,29 +20,48 @@ await mock.module('@clack/prompts', {
     intro: () => {},
     outro: () => {},
     spinner: () => ({ start: () => {}, stop: () => {} }),
-    log: { warn: () => {}, success: () => {}, error: () => {} },
+    log: { info: () => {}, warn: () => {}, success: () => {}, error: () => {} },
     isCancel: () => false,
   },
 });
 
 // ─── Controllable fake for prompt.js ─────────────────────────────────────────
 
-const promptState = { providers: ['claudecode'], gitignore: false };
+const promptState = { providers: ['claudecode'], gitignore: false, version: 'v1.0.0' };
 
 await mock.module('../src/prompt.js', {
   namedExports: {
     promptProviders: async () => promptState.providers,
     promptGitignore: async () => promptState.gitignore,
+    promptVersion: async () => promptState.version,
   },
 });
 
 // ─── Controllable fake for github.js ─────────────────────────────────────────
 
-const githubState = { buffer: null, shouldFail: false };
+const githubState = {
+  buffer: null,
+  shouldFail: false,           // applies to downloadTagZip
+  shouldFailReleases: false,   // applies to fetchLatestRelease / fetchReleases
+  latestRelease: { tag_name: 'v2.0.0', name: 'v2.0.0 Test Release' },
+  releases: [{ tag_name: 'v1.0.0', name: 'v1.0.0 Test Release' }],
+};
 
 await mock.module('../src/github.js', {
   namedExports: {
-    downloadBranchZip: async () => {
+    fetchLatestRelease: async () => {
+      if (githubState.shouldFailReleases) {
+        throw new Error('Could not reach GitHub. Check your connection.');
+      }
+      return githubState.latestRelease;
+    },
+    fetchReleases: async () => {
+      if (githubState.shouldFailReleases) {
+        throw new Error('Could not reach GitHub. Check your connection.');
+      }
+      return githubState.releases;
+    },
+    downloadTagZip: async () => {
       if (githubState.shouldFail) {
         throw new Error('Could not reach GitHub. Check your connection.');
       }
@@ -85,8 +104,10 @@ describe('install()', () => {
     // Reset state to defaults after all install() tests
     promptState.providers = ['claudecode'];
     promptState.gitignore = false;
+    promptState.version = 'v1.0.0';
     githubState.buffer = null;
     githubState.shouldFail = false;
+    githubState.shouldFailReleases = false;
   });
 
   it('returns early without error when no providers are selected', async () => {
@@ -116,7 +137,7 @@ describe('install()', () => {
     assert.ok(!fs.existsSync(manifestPath), 'manifest should not be written when providerKeys is empty array');
   });
 
-  it('handles downloadBranchZip failure gracefully (no throw)', async () => {
+  it('handles download failure gracefully (no throw)', async () => {
     promptState.providers = ['claudecode'];
     promptState.gitignore = false;
     githubState.shouldFail = true;
@@ -193,6 +214,29 @@ describe('install()', () => {
     assert.deepEqual(manifest.providers, ['claudecode'], 'should install only claudecode, not gemini from promptState');
   });
 
+  it('non-interactive mode (providerKeys) uses fetchLatestRelease silently instead of showing version prompt', async () => {
+    // promptVersion would return promptState.version ('v1.0.0')
+    // fetchLatestRelease returns githubState.latestRelease ('v2.0.0')
+    // Verify manifest.version matches latestRelease, not promptVersion result
+    promptState.version = 'v1.0.0';
+    githubState.shouldFail = false;
+    githubState.buffer = buildZipBuffer({
+      'indexed-skill-spec-main/skills/skill-nonint.md': '# Skill',
+    });
+
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'nonint-'));
+    await assert.doesNotReject(() => install(dir, ['claudecode']));
+
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(dir, '.indexed-skill', 'manifest.json'), 'utf8')
+    );
+    assert.equal(
+      manifest.version,
+      githubState.latestRelease.tag_name,
+      'non-interactive should use fetchLatestRelease (v2.0.0), not promptVersion (v1.0.0)'
+    );
+  });
+
   it('installs multiple provider keys when passed directly', async () => {
     githubState.shouldFail = false;
     githubState.buffer = buildZipBuffer({
@@ -216,6 +260,34 @@ describe('install()', () => {
     const manifestPath = path.join(dir, '.indexed-skill', 'manifest.json');
     assert.ok(!fs.existsSync(manifestPath), 'manifest should not be written on download failure');
   });
+
+  it('installs a specific version when version param is provided (skips prompt)', async () => {
+    githubState.shouldFail = false;
+    githubState.buffer = buildZipBuffer({
+      'indexed-skill-spec-v1.0.0/skills/pinned-skill.md': '# Pinned Skill',
+    });
+
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'versioned-'));
+    await assert.doesNotReject(() => install(dir, ['claudecode'], 'v1.0.0'));
+
+    const manifestPath = path.join(dir, '.indexed-skill', 'manifest.json');
+    assert.ok(fs.existsSync(manifestPath), 'manifest should be written');
+
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    assert.equal(manifest.version, 'v1.0.0', 'manifest should record the pinned version');
+  });
+
+  it('handles release fetch failure gracefully (no throw)', async () => {
+    githubState.shouldFailReleases = true;
+    promptState.providers = ['claudecode'];
+    promptState.gitignore = false;
+
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'releases-fail-'));
+    await assert.doesNotReject(() => install(dir));
+
+    const manifestPath = path.join(dir, '.indexed-skill', 'manifest.json');
+    assert.ok(!fs.existsSync(manifestPath), 'manifest should not be written when release fetch fails');
+  });
 });
 
 // ─── update() tests ───────────────────────────────────────────────────────────
@@ -231,6 +303,7 @@ describe('update()', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     githubState.buffer = null;
     githubState.shouldFail = false;
+    githubState.shouldFailReleases = false;
   });
 
   it('returns early without throwing when no manifest exists', async () => {
@@ -240,7 +313,38 @@ describe('update()', () => {
     await assert.doesNotReject(() => update(dir));
   });
 
-  it('handles downloadBranchZip failure gracefully during update (no throw)', async () => {
+  it('returns early with "already up to date" when manifest version matches latest', async () => {
+    githubState.shouldFail = false;
+    githubState.buffer = buildZipBuffer({
+      'indexed-skill-spec-main/skills/skill-a.md': '# Skill A',
+    });
+    promptState.providers = ['claudecode'];
+    promptState.gitignore = false;
+    promptState.version = 'v2.0.0'; // same as latestRelease default
+
+    const dir = fs.mkdtempSync(path.join(tmpDir, 'already-latest-'));
+    await install(dir);
+
+    // manifest now has version v2.0.0; latestRelease is also v2.0.0
+    const manifestBefore = JSON.parse(
+      fs.readFileSync(path.join(dir, '.indexed-skill', 'manifest.json'), 'utf8')
+    );
+    assert.equal(manifestBefore.version, 'v2.0.0');
+
+    // update should detect same version and exit early (no file changes)
+    await assert.doesNotReject(() => update(dir));
+
+    const manifestAfter = JSON.parse(
+      fs.readFileSync(path.join(dir, '.indexed-skill', 'manifest.json'), 'utf8')
+    );
+    // installedAt should NOT have changed (no re-write happened)
+    assert.equal(manifestAfter.installedAt, manifestBefore.installedAt, 'manifest should not be rewritten when already up to date');
+
+    // Reset version for subsequent tests
+    promptState.version = 'v1.0.0';
+  });
+
+  it('handles download failure gracefully during update (no throw)', async () => {
     githubState.shouldFail = false;
     githubState.buffer = buildZipBuffer({
       'indexed-skill-spec-main/skills/skill-a.md': '# Skill A',
