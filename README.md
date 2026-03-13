@@ -4,6 +4,108 @@
 
 ---
 
+## Quick Install
+
+Install the `idx-skill` CLI and add indexed skills to your AI agent project in seconds.
+
+**Requires Node.js >= 18.**
+
+```bash
+# One-off (no install required)
+npx idx-skill install
+
+# Or install globally
+npm install -g idx-skill
+idx-skill install
+```
+
+The interactive prompt detects which AI providers are configured in your project (`.claude/`, `.gemini/`, `.cursor/`, etc.) and lets you pick where to install.
+
+### Non-interactive install
+
+```bash
+# Install for a specific provider
+npx idx-skill install --provider claudecode
+
+# Install for multiple providers at once
+npx idx-skill install --provider claudecode --provider gemini
+```
+
+### Supported providers
+
+| Key | Provider | Install path |
+|-----|----------|--------------|
+| `claudecode` | Claude Code | `.claude/skills/` |
+| `gemini` | Gemini CLI | `.gemini/skills/` |
+| `copilot` | GitHub Copilot | `.github/skills/` |
+| `cursor` | Cursor | `.cursor/skills/` |
+| `opencode` | OpenCode | `.opencode/skills/` |
+| `windsurf` | Windsurf | `.windsurf/skills/` |
+| `codex` | Codex (OpenAI) | `.codex/skills/` |
+| `roo` | Roo Code | `.roo/skills/` |
+| `kiro` | Kiro | `.kiro/skills/` |
+| `amp` | Amp | `.agents/skills/` |
+| `auggie` | Augment | `.augment/skills/` |
+| `kilocode` | Kilocode | `.kilocode/skills/` |
+| `qwen` | Qwen | `.qwen/skills/` |
+| `codebuddy` | CodeBuddy | `.codebuddy/skills/` |
+| `qodercli` | Qoder CLI | `.qoder/skills/` |
+| `shai` | Shai | `.shai/skills/` |
+| `antigravity` | Antigravity (Google) | `.agent/skills/` |
+| `bob` | Bob | `.bob/skills/` |
+
+---
+
+## CLI Reference
+
+```
+Usage: idx-skill [command] [options]
+
+Commands:
+  install   Install indexed skills (default)
+  update    Update installed skills
+  list      List installed skills
+  check     Show which AI providers are detected in current directory
+  lint      Validate indexed skill structure
+  doctor    Diagnose indexed skill issues with suggestions
+
+Options:
+  --provider <key>   Install for a specific provider (repeatable, skips prompts)
+  --json             Output JSON for lint/doctor
+  -h, --help         Show help
+  -v, --version      Show version
+```
+
+### Examples
+
+```bash
+# Interactive install (auto-detects providers)
+npx idx-skill install
+
+# Install for Claude Code only (no prompts)
+npx idx-skill install --provider claudecode
+
+# Update installed skills to latest version
+npx idx-skill update
+
+# See what AI providers are detected in the current directory
+npx idx-skill check
+
+# List installed skills
+npx idx-skill list
+
+# Validate an indexed skill's structure (errors only)
+npx idx-skill lint skills/my-skill
+
+# Full diagnostic report with warnings and suggestions
+npx idx-skill doctor skills/my-skill
+
+# Machine-readable JSON output for CI pipelines
+npx idx-skill lint skills/my-skill --json
+```
+
+---
+
 ## The Problem
 
 Current Agent Skills follow a two-level progressive disclosure model:
@@ -29,8 +131,6 @@ Total: ~110 lines loaded, not 3000
 ## Solution Overview
 
 ISS adds lightweight inline markers directly inside Markdown files. There are no external JSON indexes or databases. Everything lives in standard Markdown comments that are invisible to human readers but machine-parseable by agents.
-
-The system has two tiers:
 
 | Tier | Use Case | Structure |
 |------|----------|-----------|
@@ -329,6 +429,9 @@ Both skills are themselves indexed, serving as living examples of the specificat
 ```
 indexed-skill-spec/
 ├── README.md                              # This specification document
+├── cli/                                   # idx-skill CLI (npx idx-skill)
+│   ├── bin/idx-skill.js                   # Entry point
+│   └── src/                              # installer, providers, doctor, lint
 ├── examples/
 │   ├── tier1-example/
 │   │   └── SKILL.md                       # Complete Tier 1 example
@@ -357,17 +460,6 @@ ISS is **fully backward-compatible** with the existing Agent Skills specificatio
 - INDEX and SECTION markers are HTML comments, invisible to standard Markdown renderers
 - RELATED markers are optional HTML comments; agents that ignore them still get valid indexed skills
 - Skills without `indexed-skill` in their frontmatter continue to work as before
-
----
-
-## Roadmap
-
-- [ ] **v0.1** -- Specification document, examples, and companion skills (this release)
-- [ ] **v0.2** -- JSON Schema for formal validation of marker syntax, including RELATED references
-- [ ] **v0.3** -- CLI tools: `iss lint` for structural checks and `iss doctor` for actionable diagnostics
-- [ ] **v0.4** -- CLI tool: `iss create` to scaffold indexed skills from existing content
-- [ ] **v0.5** -- Optional embedding vectors per section for semantic matching
-- [ ] **v1.0** -- Stable release, submitted for upstream adoption
 
 ---
 
