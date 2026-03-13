@@ -37,6 +37,12 @@ await mock.module('@clack/prompts', {
     },
     confirm: async (_opts) => clackState.confirmResult,
     isCancel: (_val) => clackState.isCancelResult,
+    log: {
+      info: (_msg) => {},
+      warn: (_msg) => {},
+      error: (_msg) => {},
+      success: (_msg) => {},
+    },
   },
 });
 
